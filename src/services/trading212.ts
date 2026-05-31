@@ -3,107 +3,140 @@ import { pruneResponse } from '../utils/data-trimmer.js';
 
 export type T212Environment = 'live' | 'demo';
 
-export class Trading212Service {
-  private client: AxiosInstance;
-  private baseUrl: string;
+export interface T212Credentials {
+  apiKey: string;
+  apiSecret: string;
+  environment: T212Environment;
+}
 
-  constructor(apiKey: string, environment: T212Environment = 'demo') {
-    this.baseUrl = environment === 'live' 
+export class Trading212Service {
+  private static getClient(creds: T212Credentials): AxiosInstance {
+    const baseUrl = creds.environment === 'live' 
       ? 'https://live.trading212.com/api/v0/' 
       : 'https://demo.trading212.com/api/v0/';
 
-    this.client = axios.create({
-      baseURL: this.baseUrl,
+    // Basic Auth: Basic <Base64(apiKey:apiSecret)>
+    const authString = Buffer.from(`${creds.apiKey}:${creds.apiSecret}`).toString('base64');
+    const authHeader = `Basic ${authString}`;
+
+    return axios.create({
+      baseURL: baseUrl,
       headers: {
-        'Authorization': apiKey,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
     });
   }
 
-  private async request(method: 'GET' | 'POST' | 'DELETE', url: string, data?: any) {
+  private static async request(creds: T212Credentials, method: 'GET' | 'POST' | 'DELETE', url: string, data?: any) {
     try {
-      const response = await this.client.request({
+      const client = this.getClient(creds);
+      const response = await client.request({
         method,
         url,
         data,
       });
       return pruneResponse(response.data);
     } catch (error: any) {
+      console.error(`\n--- Trading 212 HTTP Error ---`);
+      console.error(`Method: ${method}`);
+      console.error(`URL: ${url}`);
+      console.error(`Status: ${error.response?.status}`);
+      console.error(`Status Text: ${error.response?.statusText}`);
+      
+      if (error.response?.data) {
+        console.error(`Response Data:`, JSON.stringify(error.response.data, null, 2));
+      } else {
+        console.error(`Error Message: ${error.message}`);
+      }
+      
+      // Log sanitized headers for debugging
+      const headers = error.config?.headers || {};
+      const sanitizedHeaders = { ...headers };
+      if (sanitizedHeaders['Authorization']) {
+        sanitizedHeaders['Authorization'] = sanitizedHeaders['Authorization'].substring(0, 10) + '... (masked)';
+      }
+      console.error(`Request Headers:`, JSON.stringify(sanitizedHeaders, null, 2));
+      console.error(`------------------------------\n`);
+
       const message = error.response?.data?.errorMessage || error.message;
       throw new Error(`Trading 212 API Error (${url}): ${message}`);
     }
   }
 
   // Account
-  async getAccountInfo() {
-    return this.request('GET', 'equity/account/info');
+  static async getAccountInfo(creds: T212Credentials) {
+    return this.request(creds, 'GET', 'equity/account/info');
   }
 
-  async getAccountCash() {
-    return this.request('GET', 'equity/account/cash');
+  static async getAccountCash(creds: T212Credentials) {
+    return this.request(creds, 'GET', 'equity/account/cash');
+  }
+
+  static async getAccountSummary(creds: T212Credentials) {
+    return this.request(creds, 'GET', 'equity/account/summary');
   }
 
   // Instruments
-  async getExchangeInfo() {
-    return this.request('GET', 'equity/metadata/exchanges');
+  static async getExchangeInfo(creds: T212Credentials) {
+    return this.request(creds, 'GET', 'equity/metadata/exchanges');
   }
 
-  async getAllInstruments() {
-    return this.request('GET', 'equity/metadata/instruments');
+  static async getAllInstruments(creds: T212Credentials) {
+    return this.request(creds, 'GET', 'equity/metadata/instruments');
   }
 
   // Positions
-  async getAllPositions() {
-    return this.request('GET', 'equity/portfolio');
+  static async getAllPositions(creds: T212Credentials) {
+    return this.request(creds, 'GET', 'equity/portfolio');
   }
 
-  async getPosition(ticker: string) {
-    return this.request('GET', `equity/portfolio/${ticker}`);
+  static async getPosition(creds: T212Credentials, ticker: string) {
+    return this.request(creds, 'GET', `equity/portfolio/${ticker}`);
   }
 
   // Orders
-  async getAllOpenOrders() {
-    return this.request('GET', 'equity/orders');
+  static async getAllOpenOrders(creds: T212Credentials) {
+    return this.request(creds, 'GET', 'equity/orders');
   }
 
-  async getOrder(id: string) {
-    return this.request('GET', `equity/orders/${id}`);
+  static async getOrder(creds: T212Credentials, id: string) {
+    return this.request(creds, 'GET', `equity/orders/${id}`);
   }
 
-  async placeMarketOrder(ticker: string, quantity: number) {
-    return this.request('POST', 'equity/orders/market', { ticker, quantity });
+  static async placeMarketOrder(creds: T212Credentials, ticker: string, quantity: number) {
+    return this.request(creds, 'POST', 'equity/orders/market', { ticker, quantity });
   }
 
-  async placeLimitOrder(ticker: string, quantity: number, limitPrice: number) {
-    return this.request('POST', 'equity/orders/limit', { ticker, quantity, limitPrice });
+  static async placeLimitOrder(creds: T212Credentials, ticker: string, quantity: number, limitPrice: number) {
+    return this.request(creds, 'POST', 'equity/orders/limit', { ticker, quantity, limitPrice });
   }
 
-  async placeStopOrder(ticker: string, quantity: number, stopPrice: number) {
-    return this.request('POST', 'equity/orders/stop', { ticker, quantity, stopPrice });
+  static async placeStopOrder(creds: T212Credentials, ticker: string, quantity: number, stopPrice: number) {
+    return this.request(creds, 'POST', 'equity/orders/stop', { ticker, quantity, stopPrice });
   }
 
-  async placeStopLimitOrder(ticker: string, quantity: number, limitPrice: number, stopPrice: number) {
-    return this.request('POST', 'equity/orders/stoplimit', { ticker, quantity, limitPrice, stopPrice });
+  static async placeStopLimitOrder(creds: T212Credentials, ticker: string, quantity: number, limitPrice: number, stopPrice: number) {
+    return this.request(creds, 'POST', 'equity/orders/stoplimit', { ticker, quantity, limitPrice, stopPrice });
   }
 
-  async cancelOrder(id: string) {
-    return this.request('DELETE', `equity/orders/${id}`);
+  static async cancelOrder(creds: T212Credentials, id: string) {
+    return this.request(creds, 'DELETE', `equity/orders/${id}`);
   }
 
   // History
-  async getHistoricalOrders(cursor?: string, limit: number = 20) {
+  static async getHistoricalOrders(creds: T212Credentials, cursor?: string, limit: number = 20) {
     const url = cursor ? `history/orders?cursor=${cursor}&limit=${limit}` : `history/orders?limit=${limit}`;
-    return this.request('GET', url);
+    return this.request(creds, 'GET', url);
   }
 
-  async getHistoricalDividends(cursor?: string, limit: number = 20) {
+  static async getHistoricalDividends(creds: T212Credentials, cursor?: string, limit: number = 20) {
     const url = cursor ? `history/dividends?cursor=${cursor}&limit=${limit}` : `history/dividends?limit=${limit}`;
-    return this.request('GET', url);
+    return this.request(creds, 'GET', url);
   }
 
-  async getHistoricalTransactions(cursor?: string, limit: number = 20) {
+  static async getHistoricalTransactions(creds: T212Credentials, cursor?: string, limit: number = 20) {
     const url = cursor ? `history/transactions?cursor=${cursor}&limit=${limit}` : `history/transactions?limit=${limit}`;
-    return this.request('GET', url);
+    return this.request(creds, 'GET', url);
   }
 }

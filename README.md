@@ -10,37 +10,42 @@ An open-source Model Context Protocol (MCP) server that provides a robust interf
 - **Enterprise Ready:** Strictly typed, fully tested, and uses standard environment variable configuration.
 - **Security First:** No credentials stored on the server; everything is passed via environment variables.
 
-## 🛠 Prerequisites
+## 🔐 Authentication & Multi-Tenancy
 
-- Node.js (v18 or higher)
-- A Trading 212 Account (Live or Demo)
-- A Trading 212 API Key (Generate one in Settings -> API)
+This server is designed for **Enterprise Multi-Tenancy**. A single hosted instance can serve multiple users securely. 
 
-## 📦 Installation
+### How to Pass Credentials
+The server looks for credentials in the following order of priority:
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/karthick9500/trading212-mcp-server.git
-   cd trading212-mcp-server
-   ```
+1.  **Request Metadata (`_meta`):** (Recommended for Public Hosting)
+    MCP clients can pass credentials dynamically in every request. This allows your server to be stateless and serve many different Trading 212 accounts simultaneously.
+    
+    ```json
+    {
+      "method": "tools/call",
+      "params": {
+        "name": "t212_get_account_info",
+        "arguments": {},
+        "_meta": {
+          "TRADING212_API_KEY": "user_api_key",
+          "TRADING212_API_SECRET": "user_api_secret",
+          "TRADING212_ENV": "live"
+        }
+      }
+    }
+    ```
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+2.  **Server Environment Variables:** (Recommended for Private Hosting)
+    If no credentials are found in the request, the server falls back to the variables defined in its own `.env` file or system environment.
 
-3. **Configure Environment Variables:**
-   Create a `.env` file in the root directory:
-   ```env
-   PORT=3000
-   TRADING212_API_KEY=your_api_key_here
-   TRADING212_ENV=demo # Use 'live' for real money
-   ```
-
-4. **Build the project:**
-   ```bash
-   npm run build
-   ```
+### Environment Variable Names
+| Variable | Description |
+| --- | --- |
+| `TRADING212_API_KEY` | Your Trading 212 API Key. |
+| `TRADING212_API_SECRET` | Your Trading 212 API Secret. |
+| `TRADING212_ENV` | `live` or `demo` (default is `demo`). |
+| `TRANSPORT` | `sse` (default) or `stdio`. |
+| `PORT` | Port for SSE server (default 3000). |
 
 ## 🚀 Running the Server
 

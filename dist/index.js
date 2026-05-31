@@ -4,18 +4,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { Trading212Service } from "./services/trading212.js";
 import { registerToolHandlers } from "./tools/index.js";
 import { registerResourceHandlers } from "./resources/index.js";
 import { registerPromptHandlers } from "./prompts/index.js";
 dotenv.config();
-const API_KEY = process.env.TRADING212_API_KEY;
-const ENV = process.env.TRADING212_ENV || 'demo';
-const TRANSPORT = process.env.TRANSPORT || 'sse'; // 'sse' or 'stdio'
-if (!API_KEY) {
-    console.error("ERROR: TRADING212_API_KEY is not set.");
-}
-const t212Service = new Trading212Service(API_KEY || '', ENV);
+const TRANSPORT = process.env.TRANSPORT || 'sse';
 const server = new Server({
     name: "trading212-mcp-server",
     version: "1.0.0",
@@ -27,8 +20,8 @@ const server = new Server({
     },
 });
 // Register Handlers
-registerToolHandlers(server, t212Service, API_KEY);
-registerResourceHandlers(server, t212Service, API_KEY);
+registerToolHandlers(server);
+registerResourceHandlers(server);
 registerPromptHandlers(server);
 async function startServer() {
     if (TRANSPORT === 'stdio') {
@@ -39,41 +32,46 @@ async function startServer() {
     else {
         const app = express();
         app.use(cors());
-        app.use(express.json());
-        let transport = null;
-        app.get("/sse", async (req, res) => {
-            console.log("New SSE connection established");
-            transport = new SSEServerTransport("/message", res);
-            await server.connect(transport);
-            req.on("close", () => {
-                console.log("SSE connection closed");
-                transport = null;
-            });
+        const sessions = new Map();
+        app.get("/", (req, res) => {
+            res.json({ status: "running", sessions: sessions.size });
         });
-        app.post("/message", async (req, res) => {
+        app.get("/sse", async (req, res) => {
+            const transport = new SSEServerTransport("/message", res);
+            try {
+                await server.connect(transport);
+                const sessionId = transport.sessionId;
+                sessions.set(sessionId, transport);
+                console.error(`Session started: ${sessionId}`);
+                req.on("close", () => {
+                    sessions.delete(sessionId);
+                    console.error(`Session ended: ${sessionId}`);
+                });
+            }
+            catch (err) {
+                console.error("Connect error:", err);
+                res.end();
+            }
+        });
+        const handleMessage = async (req, res) => {
+            const sessionId = req.query.sessionId;
+            const transport = sessions.get(sessionId);
             if (transport) {
                 await transport.handlePostMessage(req, res);
             }
             else {
-                res.status(400).send("No active SSE transport");
+                res.status(404).send("Session not found");
             }
-        });
+        };
+        app.post("/message", handleMessage);
+        app.post("/sse", handleMessage);
+        app.post("/register", handleMessage);
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
             console.error(`Trading 212 MCP Server (SSE) running on port ${PORT}`);
-            console.error(`SSE endpoint: http://localhost:${PORT}/sse`);
-            console.error(`Message endpoint: http://localhost:${PORT}/message`);
-        });
-        // Basic error handling for the Express app
-        app.use((err, req, res, next) => {
-            console.error(err.stack);
-            res.status(500).send("Something went wrong!");
+            console.error(`URL: http://localhost:${PORT}/sse`);
         });
     }
 }
-startServer().catch((error) => {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-});
-export { server };
+startServer().catch(console.error);
 //# sourceMappingURL=index.js.map

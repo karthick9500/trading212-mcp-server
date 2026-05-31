@@ -5,7 +5,7 @@ import {
   ErrorCode
 } from "@modelcontextprotocol/sdk/types.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { Trading212Service } from "../services/trading212.js";
+import { Trading212Service, T212Credentials, T212Environment } from "../services/trading212.js";
 
 export const resources = [
   {
@@ -22,16 +22,28 @@ export const resources = [
   }
 ];
 
-export function registerResourceHandlers(server: Server, t212Service: Trading212Service, apiKey: string | undefined) {
+function getCredentials(request: any): T212Credentials {
+  const apiKey = request.params._meta?.TRADING212_API_KEY || process.env.TRADING212_API_KEY;
+  const apiSecret = request.params._meta?.TRADING212_API_SECRET || process.env.TRADING212_API_SECRET;
+  const environment = (request.params._meta?.TRADING212_ENV || process.env.TRADING212_ENV || 'demo') as T212Environment;
+
+  if (!apiKey || !apiSecret) {
+    throw new McpError(ErrorCode.InvalidRequest, "Authentication failed: Both TRADING212_API_KEY and TRADING212_API_SECRET must be provided.");
+  }
+
+  return { apiKey, apiSecret, environment };
+}
+
+export function registerResourceHandlers(server: Server) {
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources
   }));
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    if (!apiKey) throw new McpError(ErrorCode.InvalidRequest, "API Key required");
+    const creds = getCredentials(request);
 
     if (request.params.uri === "trading212://account/summary") {
-      const data = await t212Service.getAccountCash();
+      const data = await Trading212Service.getAccountSummary(creds);
       return {
         contents: [{
           uri: request.params.uri,
@@ -42,7 +54,7 @@ export function registerResourceHandlers(server: Server, t212Service: Trading212
     }
 
     if (request.params.uri === "trading212://portfolio/positions") {
-      const data = await t212Service.getAllPositions();
+      const data = await Trading212Service.getAllPositions(creds);
       return {
         contents: [{
           uri: request.params.uri,

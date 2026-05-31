@@ -1,4 +1,5 @@
 import { ListResourcesRequestSchema, ReadResourceRequestSchema, McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { Trading212Service } from "../services/trading212.js";
 export const resources = [
     {
         uri: "trading212://account/summary",
@@ -13,15 +14,23 @@ export const resources = [
         mimeType: "application/json"
     }
 ];
-export function registerResourceHandlers(server, t212Service, apiKey) {
+function getCredentials(request) {
+    const apiKey = request.params._meta?.TRADING212_API_KEY || process.env.TRADING212_API_KEY;
+    const apiSecret = request.params._meta?.TRADING212_API_SECRET || process.env.TRADING212_API_SECRET;
+    const environment = (request.params._meta?.TRADING212_ENV || process.env.TRADING212_ENV || 'demo');
+    if (!apiKey || !apiSecret) {
+        throw new McpError(ErrorCode.InvalidRequest, "Authentication failed: Both TRADING212_API_KEY and TRADING212_API_SECRET must be provided.");
+    }
+    return { apiKey, apiSecret, environment };
+}
+export function registerResourceHandlers(server) {
     server.setRequestHandler(ListResourcesRequestSchema, async () => ({
         resources
     }));
     server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-        if (!apiKey)
-            throw new McpError(ErrorCode.InvalidRequest, "API Key required");
+        const creds = getCredentials(request);
         if (request.params.uri === "trading212://account/summary") {
-            const data = await t212Service.getAccountCash();
+            const data = await Trading212Service.getAccountSummary(creds);
             return {
                 contents: [{
                         uri: request.params.uri,
@@ -31,7 +40,7 @@ export function registerResourceHandlers(server, t212Service, apiKey) {
             };
         }
         if (request.params.uri === "trading212://portfolio/positions") {
-            const data = await t212Service.getAllPositions();
+            const data = await Trading212Service.getAllPositions(creds);
             return {
                 contents: [{
                         uri: request.params.uri,

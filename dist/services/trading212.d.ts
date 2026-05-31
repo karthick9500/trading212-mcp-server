@@ -1,23 +1,27 @@
 export type T212Environment = 'live' | 'demo';
+export interface T212Credentials {
+    apiKey: string;
+    apiSecret: string;
+    environment: T212Environment;
+}
 export declare class Trading212Service {
-    private client;
-    private baseUrl;
-    constructor(apiKey: string, environment?: T212Environment);
-    private request;
-    getAccountInfo(): Promise<any>;
-    getAccountCash(): Promise<any>;
-    getExchangeInfo(): Promise<any>;
-    getAllInstruments(): Promise<any>;
-    getAllPositions(): Promise<any>;
-    getPosition(ticker: string): Promise<any>;
-    getAllOpenOrders(): Promise<any>;
-    getOrder(id: string): Promise<any>;
-    placeMarketOrder(ticker: string, quantity: number): Promise<any>;
-    placeLimitOrder(ticker: string, quantity: number, limitPrice: number): Promise<any>;
-    placeStopOrder(ticker: string, quantity: number, stopPrice: number): Promise<any>;
-    placeStopLimitOrder(ticker: string, quantity: number, limitPrice: number, stopPrice: number): Promise<any>;
-    cancelOrder(id: string): Promise<any>;
-    getHistoricalOrders(cursor?: string, limit?: number): Promise<any>;
-    getHistoricalDividends(cursor?: string, limit?: number): Promise<any>;
-    getHistoricalTransactions(cursor?: string, limit?: number): Promise<any>;
+    private static getClient;
+    private static request;
+    static getAccountInfo(creds: T212Credentials): Promise<any>;
+    static getAccountCash(creds: T212Credentials): Promise<any>;
+    static getAccountSummary(creds: T212Credentials): Promise<any>;
+    static getExchangeInfo(creds: T212Credentials): Promise<any>;
+    static getAllInstruments(creds: T212Credentials): Promise<any>;
+    static getAllPositions(creds: T212Credentials): Promise<any>;
+    static getPosition(creds: T212Credentials, ticker: string): Promise<any>;
+    static getAllOpenOrders(creds: T212Credentials): Promise<any>;
+    static getOrder(creds: T212Credentials, id: string): Promise<any>;
+    static placeMarketOrder(creds: T212Credentials, ticker: string, quantity: number): Promise<any>;
+    static placeLimitOrder(creds: T212Credentials, ticker: string, quantity: number, limitPrice: number): Promise<any>;
+    static placeStopOrder(creds: T212Credentials, ticker: string, quantity: number, stopPrice: number): Promise<any>;
+    static placeStopLimitOrder(creds: T212Credentials, ticker: string, quantity: number, limitPrice: number, stopPrice: number): Promise<any>;
+    static cancelOrder(creds: T212Credentials, id: string): Promise<any>;
+    static getHistoricalOrders(creds: T212Credentials, cursor?: string, limit?: number): Promise<any>;
+    static getHistoricalDividends(creds: T212Credentials, cursor?: string, limit?: number): Promise<any>;
+    static getHistoricalTransactions(creds: T212Credentials, cursor?: string, limit?: number): Promise<any>;
 }

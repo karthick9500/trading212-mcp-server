@@ -1,5 +1,4 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { Trading212Service } from "../services/trading212.js";
 export declare const tools: ({
     name: string;
     description: string;
@@ -100,4 +99,4 @@ export declare const tools: ({
         required?: undefined;
     };
 })[];
-export declare function registerToolHandlers(server: Server, t212Service: Trading212Service, apiKey: string | undefined): void;
+export declare function registerToolHandlers(server: Server): void;
