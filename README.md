@@ -1,4 +1,4 @@
-# Trading 212 MCP Server (Enterprise-Grade)
+# Trading 212 MCP Server
 
 An open-source Model Context Protocol (MCP) server that provides a robust interface to the Trading 212 platform. Built with TypeScript and designed for remote, public hosting using HTTP/Server-Sent Events (SSE).
 
